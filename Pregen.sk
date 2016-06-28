@@ -1,0 +1,148 @@
+options:
+	P: &5[Pregen] #Prefix
+	H: &a #Highlight
+	C: &7 #Normal
+	ChunksPerTick: 15 #How many chunks to load per tick
+	DebugMode: false#Broadcast when a chunk is loaded & where
+
+command /pregencancel:
+	permission: pregen.cancel
+	trigger:
+		if {PregenGoing} is not set:
+			send "{@P}{@C} No pregen is in progress!"
+		else:
+			delete {PregenGoing}
+			broadcast "{@P}{@C} Pregeneration cancelled."
+	
+command /pregen [<world>] [<integer>] [<text=border>]:
+	permission: pregen.world
+	trigger:
+		if arg-1 is not set:
+			send "{@P}{@C} Correct Usage: {@H}/pregen <world> <radius> [walls|border (default border)]"
+			stop trigger
+		else if arg-2 is not set:
+			send "{@P}{@C} Correct Usage: {@H}/pregen <world> <radius> [walls|border (default border)]"
+			stop trigger
+		else if arg-3 is not "border" or "walls":
+			send "{@P}{@C} Correct Usage: {@H}/pregen <world> <radius> [walls|border (default border)]"
+			send "{@P}{@C} ""{@H}%arg-3%{@C}"" is not a valid border type."
+			stop trigger
+		if arg-3 is "border":
+			set {_BorderType} to "1.8"
+		else:
+			set {_BorderType} to "bedrock"
+		set {PregenGoing} to true
+		set {_PregenStart} to now
+		make player execute command "/loadconfig"
+		wait 2 seconds
+		broadcast "{@P}{@C} Pregenning {@H}%arg-1%{@C} with a {@H}%arg-2%{@C} radius using a {@H}%{_BorderType}% border{@C}."
+		loop arg-2*2 times:
+			add 1 to {_BlocksLoopedX}
+			if {_BlocksLoopedX} is 16:
+				if {PregenGoing} is not set:
+					stop trigger
+				set {_BlocksLoopedX} to 0
+				if {_Progress} is not "%((loop-number/16)/125)*100%":
+					set {_Progress} to "%((loop-number/16)/125)*100%"
+					broadcast "{@P}{@C} Pregen Progress: ~{@H}%{_Progress}%%%"
+				set {_Progress} to "%((loop-number/16)/125)*100%"
+				loop arg-2*2 times:
+					add 1 to {_BlocksLoopedZ}
+					if {PregenGoing} is not set:
+						stop trigger
+					if {_BlocksLoopedZ} is 16:
+						set {_BlocksLoopedZ} to 0
+						set {_XCoord} to (loop-number-1) - arg-2
+						set {_ZCoord} to (loop-number-2) - arg-2
+						set {_ChunkLocation} to location at {_XCoord}, 255, {_ZCoord} of the world arg-1
+						add 1 to {_ChunksLoaded}
+						generate chunk at {_ChunkLocation}
+						if {@DebugMode} is true:
+							broadcast "{@P}{@C} Generating {@H}%chunk at {_ChunkLocation}%{@C}. {@H}%{_ChunksLoaded}%{@C}/{@H}{@ChunksPerTick}{@C} until waiting a tick."
+						if {_ChunksLoaded} is {@ChunksPerTick}:
+							wait 1 tick
+							if {@DebugMode} is true:
+								broadcast "{@P}{@C} Waited a tick after generating {@H}%chunk at {_ChunkLocation}%{@C}."
+							set {_ChunksLoaded} to 0
+		if {_BorderType} is "1.8":
+			set size of arg-1 to arg-2*2
+			set center of arg-1 to location at 0, 0, 0 of the world arg-1
+		else:
+			command "/setwalls %arg-1% %arg-2% 0 0 bedrock"
+		broadcast "{@P}{@C} Pregen has finished for {@H}%arg-1%{@C} with a {@H}%arg-2%{@C} radius (took {@H}%difference between {_PregenStart} and now%{@C})."
+		set {_Generator} to now
+		broadcast "{@P}{@C} Now using world generators!"
+		delete {_BlocksLoopedX}
+		delete {_BlocksLoopedZ}
+		loop (arg-2 + 2)*2 times:
+			add 1 to {_BlocksLoopedX}
+			if {_BlocksLoopedX} is 16:
+				if {PregenGoing} is not set:
+					stop trigger
+				set {_BlocksLoopedX} to 0
+				if {_Progress} is not "%((loop-number/16)/125)*100%":
+					set {_Progress} to "%((loop-number/16)/125)*100%"
+					broadcast "{@P}{@C} Changing Progress: ~{@H}%{_Progress}%%%"
+				set {_Progress} to "%((loop-number/16)/125)*100%"
+				loop (arg-2 + 2)*2 times:
+					add 1 to {_BlocksLoopedZ}
+					if {PregenGoing} is not set:
+						stop trigger
+					if {_BlocksLoopedZ} is 16:
+						set {_BlocksLoopedZ} to 0
+						set {_XCoord} to (loop-number-1) - arg-2
+						set {_ZCoord} to (loop-number-2) - arg-2
+						set {_ChunkLocation} to location at {_XCoord}, 255, {_ZCoord} of the world arg-1
+						add 1 to {_ChunksChanged}
+						set {_ChunkCorner1} to location at block at 15, 256, 15 in chunk at {_ChunkLocation}
+						set {_ChunkCorner2} to location at block at 0, 0, 0 in chunk at {_ChunkLocation}
+						if sender's gamemode is not creative:
+							set sender's gamemode to creative
+						teleport sender to location at block at 7, 150, 7 in chunk at {_ChunkLocation}
+						if {uhcsk::1.8Stone} is not set:
+							loop all blocks of type stone:1, stone:3 and stone:5 within {_ChunkCorner1} to {_ChunkCorner2}:
+								set loop-block to stone
+						if {uhcsk::OreLimiter} is set:
+							loop all blocks of type iron ore, gold ore, diamond ore, lapis ore, redstone ore and coal ore  within {_ChunkCorner1} to {_ChunkCorner2}:
+								if loop-block is a diamond ore:
+									random integer between 0 and 100 is between 80 and 100
+									set loop-block to stone
+								else if loop-block is a gold ore:
+									random integer between 0 and 100 is between 85 and 100
+									set loop-block to stone
+								else if loop-block is a lapis ore:
+									random integer between 0 and 100 is between 95 and 100
+									set loop-block to stone
+								else if loop-block is a redstone ore:
+									random integer between 0 and 100 is between 90 and 100
+									set loop-block to stone
+						if {@DebugMode} is true:
+							broadcast "{@P}{@C} Changing {@H}%chunk at {_ChunkLocation}%{@C}. {@H}%{_ChunksChanged}%{@C}/{@H}{@ChunksPerTick}{@C} until waiting a tick."
+						if {_ChunksChanged} is {@ChunksPerTick}:
+							wait 1 tick
+							if {@DebugMode} is true:
+								broadcast "{@P}{@C} Waited a tick after changing {@H}%chunk at {_ChunkLocation}%{@C}."
+							set {_ChunksChanged} to 0
+		broadcast "{@P}{@C} Pregen Finished"
+		
+command /bordershrink [<world>] [<text>] [<number>]:
+	permission: border.shrink
+	trigger:
+		if arg-1 is not set:
+			send "{@P}{@C} Correct Usage: {@H}/bordershrink <world> <timespan> <size>"
+			stop trigger
+		else if arg-2 is not set:
+			send "{@P}{@C} Correct Usage: {@H}/bordershrink <world> <timespan> <size>"
+			stop trigger
+		else if arg-3 is not set:
+			send "{@P}{@C} Correct Usage: {@H}/bordershrink <world> <timespan> <size>"
+			stop trigger
+		broadcast "{@P}{@C} Shrinking {@H}%arg-1%{@C}'s border to a {@H}%arg-3%{@C} radius over {@H}%arg-2%{@C}."
+		set size of arg-1 over "%arg-2%" parsed as timespan to arg-3*2
+		
+command /test:
+	permission: skript.op
+	trigger:
+		loop blocks from location 30 north 50 west 30 above sender to location 30 south 30 east 30 below sender:
+			loop-block is stone:0
+			@noupdate::set loop-block to air
